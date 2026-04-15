@@ -103,7 +103,7 @@ patchFile(files.agentSession, [
   {
     label: "agent-session transcript visibility method",
     oldText: `    /**\n     * Send a custom message to the session. Creates a CustomMessageEntry.\n`,
-    newText: `    setMessageVisibilityByGroup(groupId, hidden) {\n        for (const message of this.agent.state.messages) {\n            if (message?.meta?.groupId === groupId) {\n                message.meta = { ...message.meta, hiddenInTranscript: hidden };\n                if (message.role === "custom") {\n                    message.display = !hidden;\n                }\n            }\n        }\n        for (const entry of this.sessionManager.fileEntries ?? []) {\n            if (entry?.type === "message" && entry.message?.meta?.groupId === groupId) {\n                entry.message.meta = { ...entry.message.meta, hiddenInTranscript: hidden };\n            }\n            if (entry?.type === "custom_message" && entry.meta?.groupId === groupId) {\n                entry.meta = { ...entry.meta, hiddenInTranscript: hidden };\n                entry.display = !hidden;\n            }\n        }\n        this._emit({ type: "transcript_visibility_changed", groupId, hidden });\n    }\n    /**\n     * Send a custom message to the session. Creates a CustomMessageEntry.\n`,
+    newText: `    setMessageContextActiveByGroup(groupId, activeInContext) {\n        for (const message of this.agent.state.messages) {\n            if (message?.meta?.groupId === groupId) {\n                message.meta = { ...message.meta, activeInContext };\n            }\n        }\n        for (const entry of this.sessionManager.fileEntries ?? []) {\n            if (entry?.type === "message" && entry.message?.meta?.groupId === groupId) {\n                entry.message.meta = { ...entry.message.meta, activeInContext };\n            }\n            if (entry?.type === "custom_message" && entry.meta?.groupId === groupId) {\n                entry.meta = { ...entry.meta, activeInContext };\n            }\n        }\n    }\n    setMessageVisibilityByGroup(groupId, hidden) {\n        for (const message of this.agent.state.messages) {\n            if (message?.meta?.groupId === groupId) {\n                message.meta = { ...message.meta, hiddenInTranscript: hidden };\n                if (message.role === "custom") {\n                    message.display = !hidden;\n                }\n            }\n        }\n        for (const entry of this.sessionManager.fileEntries ?? []) {\n            if (entry?.type === "message" && entry.message?.meta?.groupId === groupId) {\n                entry.message.meta = { ...entry.message.meta, hiddenInTranscript: hidden };\n            }\n            if (entry?.type === "custom_message" && entry.meta?.groupId === groupId) {\n                entry.meta = { ...entry.meta, hiddenInTranscript: hidden };\n                entry.display = !hidden;\n            }\n        }\n        this._emit({ type: "transcript_visibility_changed", groupId, hidden });\n    }\n    /**\n     * Send a custom message to the session. Creates a CustomMessageEntry.\n`,
   },
   {
     label: "agent-session sendCustomMessage meta",
@@ -131,14 +131,14 @@ patchFile(files.agentSession, [
     newText: `                this.sessionManager.appendCustomMessageEntry(event.message.customType, event.message.content, event.message.display, event.message.details, event.message.meta);\n`,
   },
   {
-    label: "agent-session deactivate group on agent_end",
+    label: "agent-session clear active group on agent_end",
     oldText: `        // Check auto-retry and auto-compaction after agent completes\n        if (event.type === "agent_end" && this._lastAssistantMessage) {\n`,
-    newText: `        if (event.type === "agent_end" && this._activeEphemeralGroupMeta?.groupId) {\n            const groupId = this._activeEphemeralGroupMeta.groupId;\n            for (const message of this.agent.state.messages) {\n                if (message?.meta?.groupId === groupId) {\n                    message.meta = { ...message.meta, activeInContext: false };\n                }\n            }\n            for (const entry of this.sessionManager.fileEntries ?? []) {\n                if (entry?.type === "message" && entry.message?.meta?.groupId === groupId) {\n                    entry.message.meta = { ...entry.message.meta, activeInContext: false };\n                }\n                if (entry?.type === "custom_message" && entry.meta?.groupId === groupId) {\n                    entry.meta = { ...entry.meta, activeInContext: false };\n                }\n            }\n            this._activeEphemeralGroupMeta = undefined;\n        }\n        // Check auto-retry and auto-compaction after agent completes\n        if (event.type === "agent_end" && this._lastAssistantMessage) {\n`,
+    newText: `        if (event.type === "agent_end") {\n            this._activeEphemeralGroupMeta = undefined;\n        }\n        // Check auto-retry and auto-compaction after agent completes\n        if (event.type === "agent_end" && this._lastAssistantMessage) {\n`,
   },
   {
     label: "agent-session bindCore visibility action",
     oldText: `            appendEntry: (customType, data) => {\n                this.sessionManager.appendCustomEntry(customType, data);\n            },\n            setSessionName: (name) => {\n`,
-    newText: `            appendEntry: (customType, data) => {\n                this.sessionManager.appendCustomEntry(customType, data);\n            },\n            setMessageVisibilityByGroup: (groupId, hidden) => {\n                this.setMessageVisibilityByGroup(groupId, hidden);\n            },\n            setSessionName: (name) => {\n`,
+    newText: `            appendEntry: (customType, data) => {\n                this.sessionManager.appendCustomEntry(customType, data);\n            },\n            setMessageContextActiveByGroup: (groupId, activeInContext) => {\n                this.setMessageContextActiveByGroup(groupId, activeInContext);\n            },\n            setMessageVisibilityByGroup: (groupId, hidden) => {\n                this.setMessageVisibilityByGroup(groupId, hidden);\n            },\n            setSessionName: (name) => {\n`,
   },
 ]);
 
@@ -146,12 +146,12 @@ patchFile(files.loader, [
   {
     label: "loader runtime stub",
     oldText: `        appendEntry: notInitialized,\n        setSessionName: notInitialized,\n`,
-    newText: `        appendEntry: notInitialized,\n        setMessageVisibilityByGroup: notInitialized,\n        setSessionName: notInitialized,\n`,
+    newText: `        appendEntry: notInitialized,\n        setMessageContextActiveByGroup: notInitialized,\n        setMessageVisibilityByGroup: notInitialized,\n        setSessionName: notInitialized,\n`,
   },
   {
     label: "loader api method",
     oldText: `        appendEntry(customType, data) {\n            runtime.appendEntry(customType, data);\n        },\n        setSessionName(name) {\n`,
-    newText: `        appendEntry(customType, data) {\n            runtime.appendEntry(customType, data);\n        },\n        setMessageVisibilityByGroup(groupId, hidden) {\n            runtime.setMessageVisibilityByGroup(groupId, hidden);\n        },\n        setSessionName(name) {\n`,
+    newText: `        appendEntry(customType, data) {\n            runtime.appendEntry(customType, data);\n        },\n        setMessageContextActiveByGroup(groupId, activeInContext) {\n            runtime.setMessageContextActiveByGroup(groupId, activeInContext);\n        },\n        setMessageVisibilityByGroup(groupId, hidden) {\n            runtime.setMessageVisibilityByGroup(groupId, hidden);\n        },\n        setSessionName(name) {\n`,
   },
 ]);
 
@@ -159,7 +159,7 @@ patchFile(files.runner, [
   {
     label: "runner bindCore visibility action",
     oldText: `        this.runtime.sendMessage = actions.sendMessage;\n        this.runtime.sendUserMessage = actions.sendUserMessage;\n        this.runtime.appendEntry = actions.appendEntry;\n        this.runtime.setSessionName = actions.setSessionName;\n`,
-    newText: `        this.runtime.sendMessage = actions.sendMessage;\n        this.runtime.sendUserMessage = actions.sendUserMessage;\n        this.runtime.appendEntry = actions.appendEntry;\n        this.runtime.setMessageVisibilityByGroup = actions.setMessageVisibilityByGroup;\n        this.runtime.setSessionName = actions.setSessionName;\n`,
+    newText: `        this.runtime.sendMessage = actions.sendMessage;\n        this.runtime.sendUserMessage = actions.sendUserMessage;\n        this.runtime.appendEntry = actions.appendEntry;\n        this.runtime.setMessageContextActiveByGroup = actions.setMessageContextActiveByGroup;\n        this.runtime.setMessageVisibilityByGroup = actions.setMessageVisibilityByGroup;\n        this.runtime.setSessionName = actions.setSessionName;\n`,
   },
 ]);
 

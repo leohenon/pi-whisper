@@ -1,8 +1,8 @@
 # Testing
 
-Install with `npx pi-whisper install` or `pi-whisper install`.
+Install with `npx pi-whisper install`
 
-Restart pi before testing. `/reload` is not enough for core changes.
+Restart pi before testing.
 
 ## 1. Whisper is excluded from context
 
@@ -21,7 +21,15 @@ Restart pi before testing. `/reload` is not enough for core changes.
 - Ask: `what is my favorite color?`
 - Expected: `blue`
 
-## 3. Whisper tool calls are excluded too
+## 3. Whisper keeps whisper context while mode stays on
+
+- Fresh session
+- `/whisper`
+- Send: `the secret word is <secret word>`
+- Send: `what is the secret word?`
+- Expected: `<secret word>`
+
+## 4. Whisper tool calls are excluded too
 
 - Fresh session
 - `/whisper`
@@ -30,7 +38,7 @@ Restart pi before testing. `/reload` is not enough for core changes.
 - Ask: `what file did you just read?`
 - Expected: it does **not** remember
 
-## 4. Hide works
+## 5. Hide works
 
 - Fresh session
 - `/whisper`

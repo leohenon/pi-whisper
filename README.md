@@ -4,7 +4,7 @@
 
 Ephemeral whisper mode for pi.
 
-Use `/whisper` for side questions you do not want to keep in future context. Use `/whisper hide` to hide whisper transcript output and return to the main conversation.
+Use `/whisper` for side questions you do not want to keep in future context. While whisper mode stays on, whisper messages keep context with each other. Once whisper mode is turned off, that whisper session is excluded from future context. Use `/whisper hide` to hide whisper transcript output and return to the main conversation.
 
 ![pi-whisper demo](assets/demo.gif)
 
