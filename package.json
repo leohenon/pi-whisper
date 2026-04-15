@@ -1,0 +1,35 @@
+{
+  "name": "pi-whisper",
+  "version": "0.0.1",
+  "description": "Ephemeral whisper mode — send messages that don't persist in the agent's context",
+  "type": "module",
+  "license": "MIT",
+  "keywords": [
+    "pi-package",
+    "pi-extension",
+    "whisper",
+    "ephemeral"
+  ],
+  "files": [
+    "index.ts",
+    "README.md",
+    "TESTING.md",
+    "scripts/",
+    "package.json"
+  ],
+  "pi": {
+    "extensions": [
+      "./index.ts"
+    ]
+  },
+  "bin": {
+    "pi-whisper": "./scripts/cli.mjs",
+    "pi-whisper-install": "./scripts/install.mjs",
+    "pi-whisper-uninstall": "./scripts/uninstall.mjs",
+    "pi-whisper-patch": "./scripts/patch.mjs",
+    "pi-whisper-unpatch": "./scripts/unpatch.mjs"
+  },
+  "peerDependencies": {
+    "@mariozechner/pi-coding-agent": "*"
+  }
+}
