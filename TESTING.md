@@ -8,10 +8,10 @@ Restart pi before testing. `/reload` is not enough for core changes.
 
 - Fresh session
 - `/whisper`
-- Send: `the secret word is marzipan`
+- Send: `the secret word is <secret word>`
 - `/whisper`
 - Ask: `what is the secret word?`
-- Expected: it does **not** know `marzipan`
+- Expected: it does **not** know `<secret word>`
 
 ## 2. Whisper still sees normal context
 

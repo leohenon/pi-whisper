@@ -6,6 +6,8 @@ Ephemeral whisper mode for pi.
 
 Use `/whisper` for side questions you do not want to keep in future context. Use `/whisper hide` to hide whisper transcript output and return to the main conversation.
 
+![pi-whisper demo](assets/demo.gif)
+
 ## Install
 
 ```bash
