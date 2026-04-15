@@ -24,6 +24,12 @@ const state: WhisperState = {
   groupIds: [],
 };
 
+function resetWhisperState(ui: ExtensionUIContext): void {
+  state.active = false;
+  state.groupIds = [];
+  updateUI(ui);
+}
+
 export default function whisperExtension(pi: ExtensionAPI): void {
   const hideAllWhisperGroups = () => {
     for (const groupId of state.groupIds) {
@@ -59,9 +65,11 @@ export default function whisperExtension(pi: ExtensionAPI): void {
   });
 
   pi.on("session_start", (_event: { type: "session_start" }, ctx: ExtensionContext) => {
-    state.active = false;
-    state.groupIds = [];
-    updateUI(ctx.ui);
+    resetWhisperState(ctx.ui);
+  });
+
+  pi.on("session_switch", (_event: { type: "session_switch" }, ctx: ExtensionContext) => {
+    resetWhisperState(ctx.ui);
   });
 
   pi.on("input", (event: InputEvent) => {
