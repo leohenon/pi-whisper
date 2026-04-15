@@ -35,6 +35,7 @@ Then fully restart pi.
 
 - This package patches local pi core files, it is not a pure stock-api extension
 - `/reload` is not enough after install/remove; restart pi
+- The footer context percentage may not drop immediately after whisper mode is turned off. Whisper messages are still excluded from future model context, and the footer catches up after the next normal response.
 
 > [!WARNING]
 >
