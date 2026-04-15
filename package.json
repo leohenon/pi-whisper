@@ -1,6 +1,6 @@
 {
   "name": "pi-whisper",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Ephemeral whisper mode — send messages that don't persist in the agent's context",
   "type": "module",
   "license": "MIT",
