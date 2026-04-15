@@ -4,16 +4,22 @@
   "description": "Ephemeral whisper mode — send messages that don't persist in the agent's context",
   "type": "module",
   "license": "MIT",
-  "keywords": [
-    "pi-package",
-    "pi-extension",
-    "whisper",
-    "ephemeral"
-  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/leohenon/pi-whisper.git"
+  },
+  "homepage": "https://github.com/leohenon/pi-whisper#readme",
+  "bugs": {
+    "url": "https://github.com/leohenon/pi-whisper/issues"
+  },
+  "engines": {
+    "node": ">=18"
+  },
   "files": [
     "index.ts",
     "README.md",
     "TESTING.md",
+    "LICENSE",
     "scripts/",
     "package.json"
   ],
