@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 import { existsSync, readFileSync, writeFileSync, copyFileSync } from "node:fs";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 
 const distRoot = process.env.PI_CODING_AGENT_DIST || "/opt/homebrew/lib/node_modules/@mariozechner/pi-coding-agent/dist";
+const testedPiVersion = "0.64.0";
 
 const files = {
   messages: join(distRoot, "core/messages.js"),
@@ -44,6 +45,23 @@ function patchFile(path, edits) {
     content = replaceOnce(content, edit.oldText, edit.newText, edit.label);
   }
   writeFileSync(path, content, "utf8");
+}
+
+function readInstalledPiVersion() {
+  const packageJsonPath = resolve(distRoot, "..", "package.json");
+  if (!existsSync(packageJsonPath)) return undefined;
+  try {
+    const packageJson = JSON.parse(readFileSync(packageJsonPath, "utf8"));
+    return typeof packageJson.version === "string" ? packageJson.version : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+const installedPiVersion = readInstalledPiVersion();
+if (installedPiVersion && installedPiVersion !== testedPiVersion) {
+  console.warn(`pi-whisper: warning: tested with pi ${testedPiVersion}, found ${installedPiVersion}`);
+  console.warn("pi-whisper: warning: patch will continue, but install may fail if pi internals changed");
 }
 
 for (const path of Object.values(files)) {

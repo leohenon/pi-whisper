@@ -33,3 +33,9 @@ Then fully restart pi.
 
 - This package patches local pi core files; it is not a pure stock-api extension
 - `/reload` is not enough after install/remove; restart pi
+
+> [!WARNING]
+>
+> Tested with pi `0.64.0`
+> May break on newer pi versions
+> If install fails, pi likely changed internally
