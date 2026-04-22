@@ -2,7 +2,9 @@
 import { existsSync, copyFileSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
 
-const distRoot = process.env.PI_CODING_AGENT_DIST || "/opt/homebrew/lib/node_modules/@mariozechner/pi-coding-agent/dist";
+const distRoot =
+  process.env.PI_CODING_AGENT_DIST ||
+  "/opt/homebrew/lib/node_modules/@mariozechner/pi-coding-agent/dist";
 
 const files = [
   join(distRoot, "core/messages.js"),

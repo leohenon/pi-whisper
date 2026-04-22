@@ -39,7 +39,7 @@ Then fully restart pi.
 
 > [!WARNING]
 >
-> - Tested with pi `0.64.0`
+> - Tested with pi `0.68.1`
 > - May break on newer pi versions
 > - If install fails, pi likely changed internally
 
