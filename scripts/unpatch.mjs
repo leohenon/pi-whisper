@@ -4,7 +4,7 @@ import { join } from "node:path";
 
 const distRoot =
   process.env.PI_CODING_AGENT_DIST ||
-  "/opt/homebrew/lib/node_modules/@mariozechner/pi-coding-agent/dist";
+  "/opt/homebrew/lib/node_modules/@earendil-works/pi-coding-agent/dist";
 
 const files = [
   join(distRoot, "core/messages.js"),

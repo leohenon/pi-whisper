@@ -12,7 +12,7 @@ import type {
   ExtensionContext,
   ExtensionUIContext,
   InputEvent,
-} from "@mariozechner/pi-coding-agent";
+} from "@earendil-works/pi-coding-agent";
 
 interface WhisperState {
   active: boolean;

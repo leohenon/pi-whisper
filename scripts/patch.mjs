@@ -2,7 +2,7 @@
 import { existsSync, readFileSync, writeFileSync, copyFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 
-const distRoot = process.env.PI_CODING_AGENT_DIST || "/opt/homebrew/lib/node_modules/@mariozechner/pi-coding-agent/dist";
+const distRoot = process.env.PI_CODING_AGENT_DIST || "/opt/homebrew/lib/node_modules/@earendil-works/pi-coding-agent/dist";
 const testedPiVersion = "0.68.1";
 
 // Note: pi 0.68+ upstreamed the `meta` field on custom messages (messages.js and

@@ -9,8 +9,8 @@
     "skipLibCheck": true,
     "baseUrl": ".",
     "paths": {
-      "@mariozechner/pi-coding-agent": [
-        "/opt/homebrew/lib/node_modules/@mariozechner/pi-coding-agent/dist/index.d.ts"
+      "@earendil-works/pi-coding-agent": [
+        "/opt/homebrew/lib/node_modules/@earendil-works/pi-coding-agent/dist/index.d.ts"
       ]
     }
   },

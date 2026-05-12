@@ -36,6 +36,6 @@
     "pi-whisper-unpatch": "./scripts/unpatch.mjs"
   },
   "peerDependencies": {
-    "@mariozechner/pi-coding-agent": "*"
+    "@earendil-works/pi-coding-agent": "*"
   }
 }
