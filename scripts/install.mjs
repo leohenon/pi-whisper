@@ -31,9 +31,9 @@ const result = spawnSync(process.execPath, [patchScript], {
 });
 
 if (result.status !== 0) {
-  rmSync(linkPath, { recursive: true, force: true });
-  console.error("pi-whisper: install failed during patch step; rolled back extension files");
-  process.exit(result.status ?? 1);
+  console.warn("pi-whisper: warning: optional pi core patch failed");
+  console.warn("pi-whisper: warning: context isolation still works via extension hooks");
+  console.warn("pi-whisper: warning: transcript hiding/styling may be unavailable on this pi version");
 }
 
 console.log(`pi-whisper: installed extension at ${linkPath}`);

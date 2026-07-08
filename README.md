@@ -1,12 +1,10 @@
 # pi-whisper
 
-[![npm](https://img.shields.io/npm/v/pi-whisper?style=flat-square&logo=npm&logoColor=white&label=npm&color=64748b)](https://www.npmjs.com/package/pi-whisper) [![node](https://img.shields.io/badge/node-%3E%3D18-64748b?style=flat-square&logo=nodedotjs&logoColor=white)](https://nodejs.org)
+[![npm](https://img.shields.io/npm/v/pi-whisper?style=flat-square&logo=npm&logoColor=white&label=npm&color=64748b)](https://www.npmjs.com/package/pi-whisper)
 
 Ephemeral whisper mode for pi.
 
-Use `/whisper` for side questions you do not want to keep in future context. While whisper mode stays on, whisper messages keep context with each other. Once whisper mode is turned off, that whisper session is excluded from future context. Use `/whisper hide` to hide whisper transcript output and return to the main conversation.
-
-![pi-whisper demo](assets/demo.gif)
+Use `/whisper` for side questions you do not want to keep in future context. While whisper mode stays on, whisper messages keep context with each other. Once whisper mode is turned off, that whisper session is excluded from future model context. Use `/whisper hide` to hide whisper transcript output and return to the main conversation when the optional core patch is compatible with your pi version.
 
 ## Install
 
@@ -33,16 +31,13 @@ Then fully restart pi.
 
 ## Notes
 
-- This package patches local pi core files, it is not a pure stock-api extension
-- `/reload` is not enough after install/remove; restart pi
+- Context isolation is implemented with pi extension hooks.
+- The installer also attempts an optional local pi core patch for transcript hiding/styling.
+- If that optional patch fails, `/whisper` still excludes whisper messages from future model context, but `/whisper hide` may not visually remove old transcript entries.
+- `/reload` is not enough after install/remove; restart pi.
 - The footer context percentage may not drop immediately after whisper mode is turned off. Whisper messages are still excluded from future model context, and the footer catches up after the next normal response.
 
 > [!WARNING]
 >
-> - Tested with pi `0.74.0`
-> - May break on newer pi versions
-> - If install fails, pi likely changed internally
-
-## License
-
-MIT
+> - Optional core patch last tested with pi `0.74.0`
+> - Transcript hiding/styling may break on newer pi versions

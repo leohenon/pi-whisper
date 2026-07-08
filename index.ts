@@ -17,12 +17,22 @@ import type {
 interface WhisperState {
   active: boolean;
   activeGroupId?: string;
+  turnGroupId?: string;
   groupIds: string[];
+}
+
+interface WhisperMeta {
+  ephemeral: true;
+  groupId: string;
+  groupKind: "whisper";
+  activeInContext: boolean;
+  hiddenInTranscript: boolean;
 }
 
 const state: WhisperState = {
   active: false,
   activeGroupId: undefined,
+  turnGroupId: undefined,
   groupIds: [],
 };
 
@@ -43,8 +53,34 @@ function updateUI(ui: ExtensionUIContext): void {
 function resetWhisperState(ui: ExtensionUIContext): void {
   state.active = false;
   state.activeGroupId = undefined;
+  state.turnGroupId = undefined;
   state.groupIds = [];
   updateUI(ui);
+}
+
+function getWhisperMeta(message: unknown): Partial<WhisperMeta> | undefined {
+  return (message as { meta?: Partial<WhisperMeta> } | undefined)?.meta;
+}
+
+function withWhisperMeta<T extends object>(message: T, groupId: string): T & { meta: WhisperMeta } {
+  const previousMeta = (message as { meta?: Record<string, unknown> }).meta ?? {};
+  return {
+    ...message,
+    meta: {
+      ...previousMeta,
+      ephemeral: true,
+      groupId,
+      groupKind: "whisper",
+      activeInContext: state.active && state.activeGroupId === groupId,
+      hiddenInTranscript: false,
+    },
+  } as T & { meta: WhisperMeta };
+}
+
+function isVisibleInContext(message: unknown): boolean {
+  const meta = getWhisperMeta(message);
+  if (meta?.groupKind !== "whisper") return true;
+  return Boolean(state.active && state.activeGroupId && meta.groupId === state.activeGroupId);
 }
 
 export default function whisperExtension(pi: ExtensionAPI): void {
@@ -126,7 +162,37 @@ export default function whisperExtension(pi: ExtensionAPI): void {
 
   pi.on("session_shutdown", () => {
     stopWhisperMode();
+    state.turnGroupId = undefined;
     state.groupIds = [];
+  });
+
+  pi.on("agent_end", () => {
+    state.turnGroupId = undefined;
+  });
+
+  pi.on("message_start", (event: { type: "message_start"; message: any }) => {
+    if (event.message?.role === "user" && state.active) {
+      state.turnGroupId = ensureActiveGroupId();
+    }
+  });
+
+  pi.on("message_end", (event: { type: "message_end"; message: any }) => {
+    const groupId = state.turnGroupId ?? (state.active ? state.activeGroupId : undefined);
+    if (!groupId) return;
+
+    switch (event.message?.role) {
+      case "user":
+      case "assistant":
+      case "toolResult":
+      case "custom":
+        return { message: withWhisperMeta(event.message, groupId) };
+      default:
+        return;
+    }
+  });
+
+  pi.on("context", (event: { type: "context"; messages: any[] }) => {
+    return { messages: event.messages.filter(isVisibleInContext) };
   });
 
   pi.on("input", (event: InputEvent) => {
@@ -137,6 +203,7 @@ export default function whisperExtension(pi: ExtensionAPI): void {
     }
 
     const groupId = ensureActiveGroupId();
+    state.turnGroupId = groupId;
 
     pi.sendUserMessage(event.text, {
       meta: {

@@ -38,12 +38,15 @@ Restart pi before testing.
 - Ask: `what file did you just read?`
 - Expected: it does **not** remember
 
-## 5. Hide works
+## 5. Hide works when optional core patch is compatible
 
 - Fresh session
 - `/whisper`
 - Send: `hello`
 - `/whisper hide`
-- Expected:
+- Expected if optional patch succeeded:
   - whisper output disappears
   - whisper mode turns off
+- Expected if optional patch failed:
+  - whisper mode turns off
+  - whisper messages remain visible, but are still excluded from future model context

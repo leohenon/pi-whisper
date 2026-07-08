@@ -5,6 +5,11 @@ import { join, resolve } from "node:path";
 const distRoot = process.env.PI_CODING_AGENT_DIST || "/opt/homebrew/lib/node_modules/@earendil-works/pi-coding-agent/dist";
 const testedPiVersion = "0.74.0";
 
+process.on("uncaughtException", (error) => {
+  console.error(`pi-whisper: optional core patch failed: ${error instanceof Error ? error.message : String(error)}`);
+  process.exit(1);
+});
+
 // Note: pi 0.68+ upstreamed the `meta` field on custom messages (messages.js and
 // session-manager.js), so we no longer patch those files. We only patch the
 // whisper-specific visibility/styling hooks.
@@ -61,8 +66,8 @@ function readInstalledPiVersion() {
 
 const installedPiVersion = readInstalledPiVersion();
 if (installedPiVersion && installedPiVersion !== testedPiVersion) {
-  console.warn(`pi-whisper: warning: tested with pi ${testedPiVersion}, found ${installedPiVersion}`);
-  console.warn("pi-whisper: warning: patch will continue, but install may fail if pi internals changed");
+  console.warn(`pi-whisper: warning: optional core patch tested with pi ${testedPiVersion}, found ${installedPiVersion}`);
+  console.warn("pi-whisper: warning: context isolation does not require this patch; transcript hiding/styling may be skipped if pi internals changed");
 }
 
 for (const path of Object.values(files)) {
