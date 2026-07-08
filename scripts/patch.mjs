@@ -3,16 +3,13 @@ import { existsSync, readFileSync, writeFileSync, copyFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 
 const distRoot = process.env.PI_CODING_AGENT_DIST || "/opt/homebrew/lib/node_modules/@earendil-works/pi-coding-agent/dist";
-const testedPiVersion = "0.74.0";
+const testedPiVersion = "0.80.3";
 
 process.on("uncaughtException", (error) => {
   console.error(`pi-whisper: optional core patch failed: ${error instanceof Error ? error.message : String(error)}`);
   process.exit(1);
 });
 
-// Note: pi 0.68+ upstreamed the `meta` field on custom messages (messages.js and
-// session-manager.js), so we no longer patch those files. We only patch the
-// whisper-specific visibility/styling hooks.
 const files = {
   agentSession: join(distRoot, "core/agent-session.js"),
   loader: join(distRoot, "core/extensions/loader.js"),
@@ -76,47 +73,12 @@ for (const path of Object.values(files)) {
 
 patchFile(files.agentSession, [
   {
-    label: "agent-session active ephemeral field",
-    oldText: `    _extensionRunner;\n    _turnIndex = 0;\n    _resourceLoader;\n`,
-    newText: `    _extensionRunner;\n    _turnIndex = 0;\n    _activeEphemeralGroupMeta = undefined;\n    _resourceLoader;\n`,
-  },
-  {
-    label: "agent-session transcript visibility method",
+    label: "agent-session whisper visibility methods",
     oldText: `    /**\n     * Send a custom message to the session. Creates a CustomMessageEntry.\n`,
     newText: `    setMessageContextActiveByGroup(groupId, activeInContext) {\n        for (const message of this.agent.state.messages) {\n            if (message?.meta?.groupId === groupId) {\n                message.meta = { ...message.meta, activeInContext };\n            }\n        }\n        for (const entry of this.sessionManager.fileEntries ?? []) {\n            if (entry?.type === "message" && entry.message?.meta?.groupId === groupId) {\n                entry.message.meta = { ...entry.message.meta, activeInContext };\n            }\n            if (entry?.type === "custom_message" && entry.meta?.groupId === groupId) {\n                entry.meta = { ...entry.meta, activeInContext };\n            }\n        }\n    }\n    setMessageVisibilityByGroup(groupId, hidden) {\n        for (const message of this.agent.state.messages) {\n            if (message?.meta?.groupId === groupId) {\n                message.meta = { ...message.meta, hiddenInTranscript: hidden };\n                if (message.role === "custom") {\n                    message.display = !hidden;\n                }\n            }\n        }\n        for (const entry of this.sessionManager.fileEntries ?? []) {\n            if (entry?.type === "message" && entry.message?.meta?.groupId === groupId) {\n                entry.message.meta = { ...entry.message.meta, hiddenInTranscript: hidden };\n            }\n            if (entry?.type === "custom_message" && entry.meta?.groupId === groupId) {\n                entry.meta = { ...entry.meta, hiddenInTranscript: hidden };\n                entry.display = !hidden;\n            }\n        }\n        this._emit({ type: "transcript_visibility_changed", groupId, hidden });\n    }\n    /**\n     * Send a custom message to the session. Creates a CustomMessageEntry.\n`,
   },
   {
-    label: "agent-session sendCustomMessage meta",
-    oldText: `    async sendCustomMessage(message, options) {\n        const appMessage = {\n            role: "custom",\n            customType: message.customType,\n            content: message.content,\n            display: message.display,\n            details: message.details,\n            timestamp: Date.now(),\n        };\n`,
-    newText: `    async sendCustomMessage(message, options) {\n        const appMessage = {\n            role: "custom",\n            customType: message.customType,\n            content: message.content,\n            display: message.display,\n            details: message.details,\n            meta: message.meta,\n            timestamp: Date.now(),\n        };\n`,
-  },
-  {
-    label: "agent-session sendCustomMessage persist meta",
-    oldText: `            this.sessionManager.appendCustomMessageEntry(message.customType, message.content, message.display, message.details);\n`,
-    newText: `            this.sessionManager.appendCustomMessageEntry(message.customType, message.content, message.display, message.details, message.meta);\n`,
-  },
-  {
-    label: "agent-session sendUserMessage meta",
-    oldText: `    async sendUserMessage(content, options) {\n        // Normalize content to text string + optional images\n        let text;\n        let images;\n        if (typeof content === "string") {\n            text = content;\n        }\n        else {\n            const textParts = [];\n            images = [];\n            for (const part of content) {\n                if (part.type === "text") {\n                    textParts.push(part.text);\n                }\n                else {\n                    images.push(part);\n                }\n            }\n            text = textParts.join("\\n");\n            if (images.length === 0)\n                images = undefined;\n        }\n        // Use prompt() with expandPromptTemplates: false to skip command handling and template expansion\n        await this.prompt(text, {\n            expandPromptTemplates: false,\n            streamingBehavior: options?.deliverAs,\n            images,\n            source: "extension",\n        });\n    }\n`,
-    newText: `    async sendUserMessage(content, options) {\n        let text;\n        let images;\n        let normalizedContent;\n        if (typeof content === "string") {\n            text = content;\n            normalizedContent = [{ type: "text", text }];\n        }\n        else {\n            const textParts = [];\n            images = [];\n            for (const part of content) {\n                if (part.type === "text") {\n                    textParts.push(part.text);\n                }\n                else {\n                    images.push(part);\n                }\n            }\n            text = textParts.join("\\n");\n            if (images.length === 0)\n                images = undefined;\n            normalizedContent = content;\n        }\n        if (options?.meta) {\n            const userMessage = {\n                role: "user",\n                content: normalizedContent,\n                meta: options.meta,\n                timestamp: Date.now(),\n            };\n            if (this.isStreaming) {\n                if (options?.deliverAs === "followUp") {\n                    this.agent.followUp(userMessage);\n                }\n                else {\n                    this.agent.steer(userMessage);\n                }\n                return;\n            }\n            await this.agent.prompt(userMessage);\n            return;\n        }\n        await this.prompt(text, {\n            expandPromptTemplates: false,\n            streamingBehavior: options?.deliverAs,\n            images,\n            source: "extension",\n        });\n    }\n`,
-  },
-  {
-    label: "agent-session process event activate group",
-    oldText: `    async _processAgentEvent(event) {\n        // When a user message starts, check if it's from either queue and remove it BEFORE emitting\n`,
-    newText: `    async _processAgentEvent(event) {\n        if (event.type === "message_start" && (event.message.role === "custom" || event.message.role === "user") && event.message.meta?.ephemeral && event.message.meta?.groupId) {\n            this._activeEphemeralGroupMeta = { ...event.message.meta, activeInContext: true };\n            event.message.meta = this._activeEphemeralGroupMeta;\n        }\n        if (this._activeEphemeralGroupMeta && (event.type === "message_start" || event.type === "message_end")) {\n            if (event.message.role === "assistant" || event.message.role === "toolResult") {\n                event.message.meta = {\n                    ...this._activeEphemeralGroupMeta,\n                    activeInContext: true,\n                };\n            }\n        }\n        // When a user message starts, check if it's from either queue and remove it BEFORE emitting\n`,
-  },
-  {
-    label: "agent-session persist custom meta",
-    oldText: `                this.sessionManager.appendCustomMessageEntry(event.message.customType, event.message.content, event.message.display, event.message.details);\n`,
-    newText: `                this.sessionManager.appendCustomMessageEntry(event.message.customType, event.message.content, event.message.display, event.message.details, event.message.meta);\n`,
-  },
-  {
-    label: "agent-session clear active group on agent_end",
-    oldText: `        // Check auto-retry and auto-compaction after agent completes\n        if (event.type === "agent_end" && this._lastAssistantMessage) {\n`,
-    newText: `        if (event.type === "agent_end") {\n            this._activeEphemeralGroupMeta = undefined;\n        }\n        // Check auto-retry and auto-compaction after agent completes\n        if (event.type === "agent_end" && this._lastAssistantMessage) {\n`,
-  },
-  {
-    label: "agent-session bindCore visibility action",
+    label: "agent-session bindCore visibility actions",
     oldText: `            appendEntry: (customType, data) => {\n                this.sessionManager.appendCustomEntry(customType, data);\n            },\n            setSessionName: (name) => {\n`,
     newText: `            appendEntry: (customType, data) => {\n                this.sessionManager.appendCustomEntry(customType, data);\n            },\n            setMessageContextActiveByGroup: (groupId, activeInContext) => {\n                this.setMessageContextActiveByGroup(groupId, activeInContext);\n            },\n            setMessageVisibilityByGroup: (groupId, hidden) => {\n                this.setMessageVisibilityByGroup(groupId, hidden);\n            },\n            setSessionName: (name) => {\n`,
   },
@@ -124,20 +86,20 @@ patchFile(files.agentSession, [
 
 patchFile(files.loader, [
   {
-    label: "loader runtime stub",
+    label: "loader runtime visibility stubs",
     oldText: `        appendEntry: notInitialized,\n        setSessionName: notInitialized,\n`,
     newText: `        appendEntry: notInitialized,\n        setMessageContextActiveByGroup: notInitialized,\n        setMessageVisibilityByGroup: notInitialized,\n        setSessionName: notInitialized,\n`,
   },
   {
-    label: "loader api method",
-    oldText: `        appendEntry(customType, data) {\n            runtime.assertActive();\n            runtime.appendEntry(customType, data);\n        },\n        setSessionName(name) {\n            runtime.assertActive();\n            runtime.setSessionName(name);\n        },\n`,
-    newText: `        appendEntry(customType, data) {\n            runtime.assertActive();\n            runtime.appendEntry(customType, data);\n        },\n        setMessageContextActiveByGroup(groupId, activeInContext) {\n            runtime.assertActive();\n            runtime.setMessageContextActiveByGroup(groupId, activeInContext);\n        },\n        setMessageVisibilityByGroup(groupId, hidden) {\n            runtime.assertActive();\n            runtime.setMessageVisibilityByGroup(groupId, hidden);\n        },\n        setSessionName(name) {\n            runtime.assertActive();\n            runtime.setSessionName(name);\n        },\n`,
+    label: "loader api visibility methods",
+    oldText: `        appendEntry(customType, data) {\n            runtime.assertActive();\n            runtime.appendEntry(customType, data);\n        },\n        setSessionName(name) {\n`,
+    newText: `        appendEntry(customType, data) {\n            runtime.assertActive();\n            runtime.appendEntry(customType, data);\n        },\n        setMessageContextActiveByGroup(groupId, activeInContext) {\n            runtime.assertActive();\n            runtime.setMessageContextActiveByGroup(groupId, activeInContext);\n        },\n        setMessageVisibilityByGroup(groupId, hidden) {\n            runtime.assertActive();\n            runtime.setMessageVisibilityByGroup(groupId, hidden);\n        },\n        setSessionName(name) {\n`,
   },
 ]);
 
 patchFile(files.runner, [
   {
-    label: "runner bindCore visibility action",
+    label: "runner bindCore visibility actions",
     oldText: `        this.runtime.sendMessage = actions.sendMessage;\n        this.runtime.sendUserMessage = actions.sendUserMessage;\n        this.runtime.appendEntry = actions.appendEntry;\n        this.runtime.setSessionName = actions.setSessionName;\n`,
     newText: `        this.runtime.sendMessage = actions.sendMessage;\n        this.runtime.sendUserMessage = actions.sendUserMessage;\n        this.runtime.appendEntry = actions.appendEntry;\n        this.runtime.setMessageContextActiveByGroup = actions.setMessageContextActiveByGroup;\n        this.runtime.setMessageVisibilityByGroup = actions.setMessageVisibilityByGroup;\n        this.runtime.setSessionName = actions.setSessionName;\n`,
   },
@@ -151,13 +113,13 @@ patchFile(files.interactiveMode, [
   },
   {
     label: "interactive-mode skip hidden streaming assistant start",
-    oldText: `                else if (event.message.role === "assistant") {\n                    this.streamingComponent = new AssistantMessageComponent(undefined, this.hideThinkingBlock, this.getMarkdownThemeWithSettings(), this.hiddenThinkingLabel);\n                    this.streamingMessage = event.message;\n                    this.chatContainer.addChild(this.streamingComponent);\n                    this.streamingComponent.updateContent(this.streamingMessage);\n                    this.ui.requestRender();\n                }\n`,
-    newText: `                else if (event.message.role === "assistant") {\n                    this.streamingMessage = event.message;\n                    if (event.message?.meta?.hiddenInTranscript) {\n                        this.streamingComponent = undefined;\n                        this.ui.requestRender();\n                    }\n                    else {\n                        this.streamingComponent = new AssistantMessageComponent(undefined, this.hideThinkingBlock, this.getMarkdownThemeWithSettings(), this.hiddenThinkingLabel);\n                        this.chatContainer.addChild(this.streamingComponent);\n                        this.streamingComponent.updateContent(this.streamingMessage);\n                        this.ui.requestRender();\n                    }\n                }\n`,
+    oldText: `                else if (event.message.role === "assistant") {\n                    this.streamingComponent = new AssistantMessageComponent(undefined, this.hideThinkingBlock, this.getMarkdownThemeWithSettings(), this.hiddenThinkingLabel, this.outputPad);\n                    this.streamingMessage = event.message;\n                    this.chatContainer.addChild(this.streamingComponent);\n                    this.streamingComponent.updateContent(this.streamingMessage);\n                    this.ui.requestRender();\n                }\n`,
+    newText: `                else if (event.message.role === "assistant") {\n                    this.streamingMessage = event.message;\n                    if (event.message?.meta?.hiddenInTranscript) {\n                        this.streamingComponent = undefined;\n                        this.ui.requestRender();\n                    }\n                    else {\n                        this.streamingComponent = new AssistantMessageComponent(undefined, this.hideThinkingBlock, this.getMarkdownThemeWithSettings(), this.hiddenThinkingLabel, this.outputPad);\n                        this.chatContainer.addChild(this.streamingComponent);\n                        this.streamingComponent.updateContent(this.streamingMessage);\n                        this.ui.requestRender();\n                    }\n                }\n`,
   },
   {
     label: "interactive-mode skip hidden streaming assistant updates",
-    oldText: `                if (this.streamingComponent && event.message.role === "assistant") {\n                    this.streamingMessage = event.message;\n                    this.streamingComponent.updateContent(this.streamingMessage);\n                    for (const content of this.streamingMessage.content) {\n                        if (content.type === "toolCall") {\n                            if (!this.pendingTools.has(content.id)) {\n                                const component = new ToolExecutionComponent(content.name, content.id, content.arguments, {\n                                    showImages: this.settingsManager.getShowImages(),\n                                    imageWidthCells: this.settingsManager.getImageWidthCells(),\n                                }, this.getRegisteredToolDefinition(content.name), this.ui, this.sessionManager.getCwd());\n                                component.setExpanded(this.toolOutputExpanded);\n                                this.chatContainer.addChild(component);\n                                this.pendingTools.set(content.id, component);\n                            }\n                            else {\n                                const component = this.pendingTools.get(content.id);\n                                if (component) {\n                                    component.updateArgs(content.arguments);\n                                }\n                            }\n                        }\n                    }\n                    this.ui.requestRender();\n                }\n`,
-    newText: `                if (event.message.role === "assistant") {\n                    this.streamingMessage = event.message;\n                    if (event.message?.meta?.hiddenInTranscript) {\n                        this.streamingComponent = undefined;\n                        this.pendingTools.clear();\n                        this.ui.requestRender();\n                    }\n                    else if (this.streamingComponent) {\n                        this.streamingComponent.updateContent(this.streamingMessage);\n                        for (const content of this.streamingMessage.content) {\n                            if (content.type === "toolCall") {\n                                if (!this.pendingTools.has(content.id)) {\n                                    const component = new ToolExecutionComponent(content.name, content.id, content.arguments, {\n                                        showImages: this.settingsManager.getShowImages(),\n                                        imageWidthCells: this.settingsManager.getImageWidthCells(),\n                                    }, this.getRegisteredToolDefinition(content.name), this.ui, this.sessionManager.getCwd());\n                                    component.setExpanded(this.toolOutputExpanded);\n                                    this.chatContainer.addChild(component);\n                                    this.pendingTools.set(content.id, component);\n                                }\n                                else {\n                                    const component = this.pendingTools.get(content.id);\n                                    if (component) {\n                                        component.updateArgs(content.arguments);\n                                    }\n                                }\n                            }\n                        }\n                        this.ui.requestRender();\n                    }\n                }\n`,
+    oldText: `                if (this.streamingComponent && event.message.role === "assistant") {\n                    this.streamingMessage = event.message;\n                    this.streamingComponent.updateContent(this.streamingMessage);\n                    for (const content of this.streamingMessage.content) {\n`,
+    newText: `                if (event.message.role === "assistant") {\n                    this.streamingMessage = event.message;\n                    if (event.message?.meta?.hiddenInTranscript) {\n                        this.streamingComponent = undefined;\n                        this.pendingTools.clear();\n                        this.ui.requestRender();\n                        break;\n                    }\n                    if (!this.streamingComponent) break;\n                    this.streamingComponent.updateContent(this.streamingMessage);\n                    for (const content of this.streamingMessage.content) {\n`,
   },
   {
     label: "interactive-mode skip hidden tool execution start",
@@ -176,29 +138,49 @@ patchFile(files.interactiveMode, [
   },
   {
     label: "interactive-mode whisper user variant",
-    oldText: `            case "user": {\n                const textContent = this.getUserMessageText(message);\n                if (textContent) {\n                    if (this.chatContainer.children.length > 0) {\n                        this.chatContainer.addChild(new Spacer(1));\n                    }\n                    const skillBlock = parseSkillBlock(textContent);\n                    if (skillBlock) {\n                        // Render skill block (collapsible)\n                        const component = new SkillInvocationMessageComponent(skillBlock, this.getMarkdownThemeWithSettings());\n                        component.setExpanded(this.toolOutputExpanded);\n                        this.chatContainer.addChild(component);\n                        // Render user message separately if present\n                        if (skillBlock.userMessage) {\n                            const userComponent = new UserMessageComponent(skillBlock.userMessage, this.getMarkdownThemeWithSettings());\n                            this.chatContainer.addChild(userComponent);\n                        }\n                    }\n                    else {\n                        const userComponent = new UserMessageComponent(textContent, this.getMarkdownThemeWithSettings());\n                        this.chatContainer.addChild(userComponent);\n                    }\n`,
-    newText: `            case "user": {\n                const textContent = this.getUserMessageText(message);\n                if (textContent) {\n                    if (this.chatContainer.children.length > 0) {\n                        this.chatContainer.addChild(new Spacer(1));\n                    }\n                    const userVariant = message?.meta?.groupKind === "whisper" ? "whisper" : "default";\n                    const skillBlock = parseSkillBlock(textContent);\n                    if (skillBlock) {\n                        // Render skill block (collapsible)\n                        const component = new SkillInvocationMessageComponent(skillBlock, this.getMarkdownThemeWithSettings());\n                        component.setExpanded(this.toolOutputExpanded);\n                        this.chatContainer.addChild(component);\n                        // Render user message separately if present\n                        if (skillBlock.userMessage) {\n                            const userComponent = new UserMessageComponent(skillBlock.userMessage, this.getMarkdownThemeWithSettings(), userVariant);\n                            this.chatContainer.addChild(userComponent);\n                        }\n                    }\n                    else {\n                        const userComponent = new UserMessageComponent(textContent, this.getMarkdownThemeWithSettings(), userVariant);\n                        this.chatContainer.addChild(userComponent);\n                    }\n`,
+    oldText: `                    const skillBlock = parseSkillBlock(textContent);\n                    if (skillBlock) {\n`,
+    newText: `                    const userVariant = message?.meta?.groupKind === "whisper" ? "whisper" : "default";\n                    const skillBlock = parseSkillBlock(textContent);\n                    if (skillBlock) {\n`,
+  },
+  {
+    label: "interactive-mode whisper skill user variant",
+    oldText: `                            const userComponent = new UserMessageComponent(skillBlock.userMessage, this.getMarkdownThemeWithSettings(), this.outputPad);\n`,
+    newText: `                            const userComponent = new UserMessageComponent(skillBlock.userMessage, this.getMarkdownThemeWithSettings(), this.outputPad, userVariant);\n`,
+  },
+  {
+    label: "interactive-mode whisper user component variant",
+    oldText: `                        const userComponent = new UserMessageComponent(textContent, this.getMarkdownThemeWithSettings(), this.outputPad);\n`,
+    newText: `                        const userComponent = new UserMessageComponent(textContent, this.getMarkdownThemeWithSettings(), this.outputPad, userVariant);\n`,
   },
 ]);
 
 patchFile(files.userMessage, [
   {
+    label: "user-message whisper variant field",
+    oldText: `    outputPad;\n    constructor(text, markdownTheme = getMarkdownTheme(), outputPad = 1) {\n`,
+    newText: `    outputPad;\n    variant;\n    constructor(text, markdownTheme = getMarkdownTheme(), outputPad = 1, variant = "default") {\n`,
+  },
+  {
+    label: "user-message whisper variant assignment",
+    oldText: `        this.outputPad = outputPad;\n        this.rebuild();\n`,
+    newText: `        this.outputPad = outputPad;\n        this.variant = variant;\n        this.rebuild();\n`,
+  },
+  {
     label: "user-message whisper variant rendering",
-    oldText: `    constructor(text, markdownTheme = getMarkdownTheme()) {\n        super();\n        this.contentBox = new Box(1, 1, (content) => theme.bg("userMessageBg", content));\n        this.contentBox.addChild(new Markdown(text, 0, 0, markdownTheme, {\n            color: (content) => theme.fg("userMessageText", content),\n        }));\n        this.addChild(this.contentBox);\n    }\n`,
-    newText: `    constructor(text, markdownTheme = getMarkdownTheme(), variant = "default") {\n        super();\n        const isWhisper = variant === "whisper";\n        this.contentBox = new Box(1, 1, (content) => theme.bg("userMessageBg", content));\n        this.contentBox.addChild(new Markdown(text, 0, 0, markdownTheme, {\n            color: (content) => isWhisper ? theme.fg("muted", content) : theme.fg("userMessageText", content),\n        }));\n        this.addChild(this.contentBox);\n    }\n`,
+    oldText: `        const contentBox = new Box(this.outputPad, 1, (content) => theme.bg("userMessageBg", content));\n        contentBox.addChild(new Markdown(this.text, 0, 0, this.markdownTheme, {\n            color: (content) => theme.fg("userMessageText", content),\n        }, { preserveOrderedListMarkers: true, preserveBackslashEscapes: true }));\n`,
+    newText: `        const isWhisper = this.variant === "whisper";\n        const contentBox = new Box(this.outputPad, 1, (content) => theme.bg("userMessageBg", content));\n        contentBox.addChild(new Markdown(this.text, 0, 0, this.markdownTheme, {\n            color: (content) => isWhisper ? theme.fg("muted", content) : theme.fg("userMessageText", content),\n        }, { preserveOrderedListMarkers: true, preserveBackslashEscapes: true }));\n`,
   },
 ]);
 
 patchFile(files.assistantMessage, [
   {
-    label: "assistant-message muted whisper replies",
-    oldText: `    updateContent(message) {\n        this.lastMessage = message;\n        // Clear content container\n        this.contentContainer.clear();\n        const hasVisibleContent = message.content.some((c) => (c.type === "text" && c.text.trim()) || (c.type === "thinking" && c.thinking.trim()));\n        if (hasVisibleContent) {\n            this.contentContainer.addChild(new Spacer(1));\n        }\n`,
-    newText: `    updateContent(message) {\n        this.lastMessage = message;\n        // Clear content container\n        this.contentContainer.clear();\n        const isWhisper = message?.meta?.groupKind === "whisper";\n        const hasVisibleContent = message.content.some((c) => (c.type === "text" && c.text.trim()) || (c.type === "thinking" && c.thinking.trim()));\n        if (hasVisibleContent) {\n            this.contentContainer.addChild(new Spacer(1));\n        }\n`,
+    label: "assistant-message whisper flag",
+    oldText: `        // Clear content container\n        this.contentContainer.clear();\n        const hasVisibleContent = message.content.some((c) => (c.type === "text" && c.text.trim()) || (c.type === "thinking" && c.thinking.trim()));\n`,
+    newText: `        // Clear content container\n        this.contentContainer.clear();\n        const isWhisper = message?.meta?.groupKind === "whisper";\n        const hasVisibleContent = message.content.some((c) => (c.type === "text" && c.text.trim()) || (c.type === "thinking" && c.thinking.trim()));\n`,
   },
   {
-    label: "assistant-message muted whisper text",
-    oldText: `            if (content.type === "text" && content.text.trim()) {\n                // Assistant text messages with no background - trim the text\n                // Set paddingY=0 to avoid extra spacing before tool executions\n                this.contentContainer.addChild(new Markdown(content.text.trim(), 1, 0, this.markdownTheme));\n            }\n`,
-    newText: `            if (content.type === "text" && content.text.trim()) {\n                // Assistant text messages with no background - trim the text\n                // Set paddingY=0 to avoid extra spacing before tool executions\n                this.contentContainer.addChild(new Markdown(content.text.trim(), 1, 0, this.markdownTheme, isWhisper ? {\n                    color: (text) => theme.fg("muted", text),\n                } : undefined));\n            }\n`,
+    label: "assistant-message whisper muted text",
+    oldText: `                this.contentContainer.addChild(new Markdown(content.text.trim(), this.outputPad, 0, this.markdownTheme));\n`,
+    newText: `                this.contentContainer.addChild(new Markdown(content.text.trim(), this.outputPad, 0, this.markdownTheme, isWhisper ? {\n                    color: (text) => theme.fg("muted", text),\n                } : undefined));\n`,
   },
 ]);
 

@@ -62,19 +62,28 @@ function getWhisperMeta(message: unknown): Partial<WhisperMeta> | undefined {
   return (message as { meta?: Partial<WhisperMeta> } | undefined)?.meta;
 }
 
+function createWhisperMeta(message: unknown, groupId: string): WhisperMeta {
+  const previousMeta = (message as { meta?: Record<string, unknown> } | undefined)?.meta ?? {};
+  return {
+    ...previousMeta,
+    ephemeral: true,
+    groupId,
+    groupKind: "whisper",
+    activeInContext: state.active && state.activeGroupId === groupId,
+    hiddenInTranscript: false,
+  } as WhisperMeta;
+}
+
 function withWhisperMeta<T extends object>(message: T, groupId: string): T & { meta: WhisperMeta } {
-  const previousMeta = (message as { meta?: Record<string, unknown> }).meta ?? {};
   return {
     ...message,
-    meta: {
-      ...previousMeta,
-      ephemeral: true,
-      groupId,
-      groupKind: "whisper",
-      activeInContext: state.active && state.activeGroupId === groupId,
-      hiddenInTranscript: false,
-    },
+    meta: createWhisperMeta(message, groupId),
   } as T & { meta: WhisperMeta };
+}
+
+function applyWhisperMeta(message: unknown, groupId: string): void {
+  if (!message || typeof message !== "object") return;
+  (message as { meta?: WhisperMeta }).meta = createWhisperMeta(message, groupId);
 }
 
 function isVisibleInContext(message: unknown): boolean {
@@ -173,6 +182,22 @@ export default function whisperExtension(pi: ExtensionAPI): void {
   pi.on("message_start", (event: { type: "message_start"; message: any }) => {
     if (event.message?.role === "user" && state.active) {
       state.turnGroupId = ensureActiveGroupId();
+      applyWhisperMeta(event.message, state.turnGroupId);
+      return;
+    }
+
+    const groupId = state.turnGroupId;
+    if (!groupId) return;
+    if (event.message?.role === "assistant" || event.message?.role === "toolResult") {
+      applyWhisperMeta(event.message, groupId);
+    }
+  });
+
+  pi.on("message_update", (event: { type: "message_update"; message: any }) => {
+    const groupId = state.turnGroupId;
+    if (!groupId) return;
+    if (event.message?.role === "assistant" || event.message?.role === "toolResult") {
+      applyWhisperMeta(event.message, groupId);
     }
   });
 

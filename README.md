@@ -39,5 +39,4 @@ Then fully restart pi.
 
 > [!WARNING]
 >
-> - Optional core patch last tested with pi `0.74.0`
-> - Transcript hiding/styling may break on newer pi versions
+> - Optional core patch last tested with pi `0.80.3`
